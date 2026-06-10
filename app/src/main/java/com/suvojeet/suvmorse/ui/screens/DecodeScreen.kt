@@ -2,6 +2,7 @@ package com.suvojeet.suvmorse.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -30,6 +31,7 @@ import com.suvojeet.suvmorse.morse.MorseCode
 import com.suvojeet.suvmorse.ui.components.SectionCard
 
 /** Manual Morse → text decoder. Type or paste dots/dashes; spaces split letters, "/" splits words. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DecodeScreen(
     modifier: Modifier = Modifier,
