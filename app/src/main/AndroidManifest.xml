@@ -34,7 +34,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.SuvMorse">
+            android:theme="@style/Theme.SuvMorse.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

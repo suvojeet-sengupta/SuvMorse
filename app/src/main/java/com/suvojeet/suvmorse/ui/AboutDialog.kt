@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +34,11 @@ import androidx.compose.ui.window.DialogProperties
 
 /** A full, hand-written "About" sheet: what the app is, what it's for, privacy, and credits. */
 @Composable
-fun AboutDialog(onDismiss: () -> Unit) {
+fun AboutDialog(
+    onDismiss: () -> Unit,
+    themeMode: Int = 0,
+    onThemeModeChange: (Int) -> Unit = {}
+) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -72,6 +77,17 @@ fun AboutDialog(onDismiss: () -> Unit) {
                     Bullet("Scouts & classrooms", "A hands-on way to teach and play with signalling.")
                     Bullet("Real decoding", "Read beeps from a buzzer, radio or another phone.")
                     Bullet("Just for fun", "Trade secret messages with friends.")
+
+                    Heading("Appearance")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("System", "Light", "Dark").forEachIndexed { mode, label ->
+                            FilterChip(
+                                selected = themeMode == mode,
+                                onClick = { onThemeModeChange(mode) },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
 
                     Heading("Your privacy")
                     Text(

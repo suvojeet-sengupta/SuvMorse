@@ -1,5 +1,7 @@
 package com.suvojeet.suvmorse.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +55,10 @@ import kotlinx.coroutines.launch
 private data class Destination(val title: String, val icon: ImageVector)
 
 @Composable
-fun MorseApp() {
+fun MorseApp(
+    themeMode: Int = 0,
+    onThemeModeChange: (Int) -> Unit = {}
+) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showAbout by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -73,7 +78,11 @@ fun MorseApp() {
     )
 
     if (showAbout) {
-        AboutDialog(onDismiss = { showAbout = false })
+        AboutDialog(
+            onDismiss = { showAbout = false },
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange
+        )
     }
 
     Scaffold(
@@ -94,11 +103,13 @@ fun MorseApp() {
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
-            when (selected) {
-                0 -> EncodeScreen(Modifier.fillMaxSize(), showMessage)
-                1 -> DecodeScreen(Modifier.fillMaxSize(), showMessage)
-                2 -> ReceiveScreen(Modifier.fillMaxSize(), showMessage)
-                else -> ChartScreen(Modifier.fillMaxSize())
+            Crossfade(targetState = selected, animationSpec = tween(250), label = "tab") { tab ->
+                when (tab) {
+                    0 -> EncodeScreen(Modifier.fillMaxSize(), showMessage)
+                    1 -> DecodeScreen(Modifier.fillMaxSize(), showMessage)
+                    2 -> ReceiveScreen(Modifier.fillMaxSize(), showMessage)
+                    else -> ChartScreen(Modifier.fillMaxSize())
+                }
             }
         }
     }

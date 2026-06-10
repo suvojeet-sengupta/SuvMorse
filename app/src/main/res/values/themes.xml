@@ -2,4 +2,11 @@
 <resources>
 
     <style name="Theme.SuvMorse" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Shown at cold start, then handed off to Theme.SuvMorse via installSplashScreen(). -->
+    <style name="Theme.SuvMorse.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.SuvMorse</item>
+    </style>
 </resources>

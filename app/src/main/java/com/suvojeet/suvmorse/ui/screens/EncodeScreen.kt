@@ -2,6 +2,8 @@ package com.suvojeet.suvmorse.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,9 +43,9 @@ import com.suvojeet.suvmorse.ui.components.LabeledSlider
 import com.suvojeet.suvmorse.ui.components.MorseGlyphs
 import com.suvojeet.suvmorse.ui.components.SectionCard
 import com.suvojeet.suvmorse.ui.components.ShareButtons
-import com.suvojeet.suvmorse.ui.components.SwitchRow
 import com.suvojeet.suvmorse.ui.components.TransmitBeacon
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EncodeScreen(
     modifier: Modifier = Modifier,
@@ -48,6 +53,7 @@ fun EncodeScreen(
     vm: EncodeViewModel = viewModel()
 ) {
     val clipboard = LocalClipboardManager.current
+    val haptic = LocalHapticFeedback.current
     val morse = vm.morse
     val hasMorse = morse.isNotEmpty()
     val nearLimit = vm.charCount >= vm.maxChars * 0.9
@@ -93,6 +99,7 @@ fun EncodeScreen(
             }
         }
 
+        // ── Transmission hero ──
         SectionCard(
             title = "Morse",
             trailing = {
@@ -101,6 +108,7 @@ fun EncodeScreen(
                     IconButton(
                         onClick = {
                             if (hasMorse) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 clipboard.setText(AnnotatedString(morse))
                                 showMessage("Morse copied to clipboard")
                             }
@@ -114,7 +122,7 @@ fun EncodeScreen(
         ) {
             if (!hasMorse) {
                 Text(
-                    "· — · ·   will appear here",
+                    "Type above — your message becomes · — · · here, ready to play.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
@@ -124,11 +132,28 @@ fun EncodeScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            Spacer(Modifier.height(18.dp))
+            PlayButton(
+                isPlaying = vm.isPlaying,
+                enabled = hasMorse,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    vm.togglePlay()
+                }
+            )
         }
 
         SectionCard(title = "Playback") {
+            Text("Speed", style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SpeedPreset("Slow", 8, vm.wpm) { vm.updateWpm(it) }
+                SpeedPreset("Medium", 15, vm.wpm) { vm.updateWpm(it) }
+                SpeedPreset("Fast", 25, vm.wpm) { vm.updateWpm(it) }
+            }
+            Spacer(Modifier.height(8.dp))
             LabeledSlider(
-                label = "Speed",
+                label = "Fine",
                 valueText = "${vm.wpm} WPM",
                 value = vm.wpm.toFloat(),
                 onValueChange = { vm.updateWpm(it.toInt()) },
@@ -145,44 +170,31 @@ fun EncodeScreen(
                     valueRange = 300f..1200f
                 )
             }
-            Spacer(Modifier.height(16.dp))
-            SwitchRow(
-                label = "Silent mode (16 kHz)",
-                supporting = "Send a near-inaudible 16 kHz tone — the Receive tab still decodes it",
-                checked = vm.silentMode,
-                onCheckedChange = { vm.toggleSilent() }
-            )
-            Spacer(Modifier.height(8.dp))
-            SwitchRow(
-                label = "Loop",
-                supporting = "Repeat the message until stopped",
-                checked = vm.loopEnabled,
-                onCheckedChange = { vm.toggleLoop() }
-            )
-            Spacer(Modifier.height(8.dp))
-            SwitchRow(
-                label = "Flashlight",
-                supporting = if (vm.torchAvailable) "Blink the torch with each tone"
-                else "No flashlight on this device",
-                checked = vm.torchEnabled,
-                enabled = vm.torchAvailable,
-                onCheckedChange = { vm.toggleTorch() }
-            )
-            Spacer(Modifier.height(8.dp))
-            SwitchRow(
-                label = "Vibration",
-                supporting = if (vm.hapticAvailable) "Buzz the pattern as it plays"
-                else "No vibrator on this device",
-                checked = vm.hapticEnabled,
-                enabled = vm.hapticAvailable,
-                onCheckedChange = { vm.toggleHaptic() }
-            )
-            Spacer(Modifier.height(20.dp))
-            PlayButton(
-                isPlaying = vm.isPlaying,
-                enabled = hasMorse,
-                onClick = vm::togglePlay
-            )
+            Spacer(Modifier.height(14.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = vm.silentMode,
+                    onClick = { vm.toggleSilent() },
+                    label = { Text("Silent 16 kHz") }
+                )
+                FilterChip(
+                    selected = vm.loopEnabled,
+                    onClick = { vm.toggleLoop() },
+                    label = { Text("Loop") }
+                )
+                FilterChip(
+                    selected = vm.torchEnabled,
+                    onClick = { vm.toggleTorch() },
+                    enabled = vm.torchAvailable,
+                    label = { Text("Flashlight") }
+                )
+                FilterChip(
+                    selected = vm.hapticEnabled,
+                    onClick = { vm.toggleHaptic() },
+                    enabled = vm.hapticAvailable,
+                    label = { Text("Vibration") }
+                )
+            }
         }
 
         SectionCard(title = "Share") {
@@ -202,6 +214,15 @@ fun EncodeScreen(
             modifier = Modifier.fillMaxWidth()
         )
     }
+}
+
+@Composable
+private fun SpeedPreset(label: String, wpm: Int, current: Int, onPick: (Int) -> Unit) {
+    FilterChip(
+        selected = current == wpm,
+        onClick = { onPick(wpm) },
+        label = { Text(label) }
+    )
 }
 
 @Composable

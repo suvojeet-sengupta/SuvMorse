@@ -36,6 +36,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_SILENT, false)
         set(value) = prefs.edit().putBoolean(KEY_SILENT, value).apply()
 
+    /** 0 = follow system, 1 = light, 2 = dark. */
+    var themeMode: Int
+        get() = prefs.getInt(KEY_THEME, 0)
+        set(value) = prefs.edit().putInt(KEY_THEME, value).apply()
+
     private companion object {
         const val KEY_WPM = "wpm"
         const val KEY_FREQ = "frequency"
@@ -44,5 +49,6 @@ class SettingsStore(context: Context) {
         const val KEY_LOOP = "loop"
         const val KEY_SENSITIVITY = "sensitivity"
         const val KEY_SILENT = "silent"
+        const val KEY_THEME = "theme_mode"
     }
 }
