@@ -40,6 +40,10 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
     var loopEnabled by mutableStateOf(settings.loop)
         private set
 
+    /** When on, plays a ~16 kHz near-inaudible tone instead of the audible pitch. */
+    var silentMode by mutableStateOf(settings.silent)
+        private set
+
     /** Ordinal of the dot/dash currently sounding, or -1 when idle. Drives UI highlighting. */
     var currentSymbol by mutableIntStateOf(-1)
         private set
@@ -51,6 +55,9 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
         get() = input.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
     val torchAvailable: Boolean get() = feedback.hasTorch()
     val hapticAvailable: Boolean get() = feedback.hasVibrator()
+
+    /** Frequency actually sent to the speaker: 16 kHz in silent mode, else the chosen pitch. */
+    val effectiveFrequency: Double get() = if (silentMode) SILENT_FREQUENCY_HZ else frequency
 
     fun onInputChange(text: String) {
         input = text.take(MorseCode.MAX_INPUT_LENGTH)
@@ -76,6 +83,8 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleLoop() { loopEnabled = !loopEnabled; settings.loop = loopEnabled }
 
+    fun toggleSilent() { silentMode = !silentMode; settings.silent = silentMode }
+
     fun togglePlay() = if (isPlaying) stop() else play()
 
     fun play() {
@@ -91,7 +100,7 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
                     player.play(
                         signals = signals,
                         unitMillis = unit,
-                        frequencyHz = frequency,
+                        frequencyHz = effectiveFrequency,
                         onSymbol = { idx ->
                             currentSymbol = idx
                             if (torchEnabled) feedback.setTorch(idx >= 0)
@@ -120,5 +129,9 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         stop()
+    }
+
+    companion object {
+        const val SILENT_FREQUENCY_HZ = 16_000.0
     }
 }

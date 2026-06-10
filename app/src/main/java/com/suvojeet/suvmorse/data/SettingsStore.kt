@@ -32,6 +32,10 @@ class SettingsStore(context: Context) {
         get() = prefs.getFloat(KEY_SENSITIVITY, 0.5f)
         set(value) = prefs.edit().putFloat(KEY_SENSITIVITY, value).apply()
 
+    var silent: Boolean
+        get() = prefs.getBoolean(KEY_SILENT, false)
+        set(value) = prefs.edit().putBoolean(KEY_SILENT, value).apply()
+
     private companion object {
         const val KEY_WPM = "wpm"
         const val KEY_FREQ = "frequency"
@@ -39,5 +43,6 @@ class SettingsStore(context: Context) {
         const val KEY_HAPTIC = "haptic"
         const val KEY_LOOP = "loop"
         const val KEY_SENSITIVITY = "sensitivity"
+        const val KEY_SILENT = "silent"
     }
 }

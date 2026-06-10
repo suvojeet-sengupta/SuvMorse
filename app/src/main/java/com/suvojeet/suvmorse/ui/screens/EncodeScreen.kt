@@ -135,15 +135,24 @@ fun EncodeScreen(
                 valueRange = 5f..40f,
                 steps = 34
             )
-            Spacer(Modifier.height(12.dp))
-            LabeledSlider(
-                label = "Pitch",
-                valueText = "${vm.frequency.toInt()} Hz",
-                value = vm.frequency.toFloat(),
-                onValueChange = { vm.updateFrequency(it.toDouble()) },
-                valueRange = 300f..1200f
-            )
+            if (!vm.silentMode) {
+                Spacer(Modifier.height(12.dp))
+                LabeledSlider(
+                    label = "Pitch",
+                    valueText = "${vm.frequency.toInt()} Hz",
+                    value = vm.frequency.toFloat(),
+                    onValueChange = { vm.updateFrequency(it.toDouble()) },
+                    valueRange = 300f..1200f
+                )
+            }
             Spacer(Modifier.height(16.dp))
+            SwitchRow(
+                label = "Silent mode (16 kHz)",
+                supporting = "Send a near-inaudible 16 kHz tone — the Receive tab still decodes it",
+                checked = vm.silentMode,
+                onCheckedChange = { vm.toggleSilent() }
+            )
+            Spacer(Modifier.height(8.dp))
             SwitchRow(
                 label = "Loop",
                 supporting = "Repeat the message until stopped",

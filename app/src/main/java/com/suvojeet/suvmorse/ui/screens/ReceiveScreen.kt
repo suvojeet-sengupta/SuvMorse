@@ -205,8 +205,8 @@ fun ReceiveScreen(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Pitch is detected automatically (400–1000 Hz). Raise sensitivity for faint or " +
-                    "distant tones; lower it in a noisy room.",
+                "Pitch is detected automatically — audible tones (400–1000 Hz) and the 16 kHz " +
+                    "silent mode. Raise sensitivity for faint tones; lower it in a noisy room.",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

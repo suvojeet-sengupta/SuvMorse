@@ -67,8 +67,10 @@ class MorseDetector(
             AudioFormat.ENCODING_PCM_16BIT
         ).coerceAtLeast(blockSize * 4)
 
+        // MIC (rather than VOICE_RECOGNITION) avoids the voice-band filtering that would
+        // otherwise attenuate the 16 kHz silent-mode tone.
         val record = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            MediaRecorder.AudioSource.MIC,
             sampleRate,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
@@ -78,8 +80,10 @@ class MorseDetector(
             "Could not initialise the microphone."
         }
 
-        // Pre-computed Goertzel coefficients for each frequency bin in the band.
-        val freqs = (BAND_MIN_HZ..BAND_MAX_HZ step BAND_STEP_HZ).toList()
+        // Pre-computed Goertzel coefficients for each frequency bin. The audible band covers
+        // normal Morse tones; the high bins pick up the ~16 kHz near-inaudible "silent mode".
+        val freqs = (BAND_MIN_HZ..BAND_MAX_HZ step BAND_STEP_HZ).toList() +
+            listOf(15_500, 16_000, 16_500)
         val coeffs = DoubleArray(freqs.size) { 2.0 * cos(2.0 * PI * freqs[it] / sampleRate) }
 
         val blockMs = blockSize * 1000.0 / sampleRate
