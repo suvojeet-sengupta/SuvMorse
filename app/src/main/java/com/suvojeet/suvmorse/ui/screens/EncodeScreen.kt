@@ -34,10 +34,12 @@ import com.suvojeet.suvmorse.ui.EncodeViewModel
 import com.suvojeet.suvmorse.ui.components.LabeledSlider
 import com.suvojeet.suvmorse.ui.components.MorseGlyphs
 import com.suvojeet.suvmorse.ui.components.SectionCard
+import com.suvojeet.suvmorse.ui.components.SwitchRow
 
 @Composable
 fun EncodeScreen(
     modifier: Modifier = Modifier,
+    showMessage: (String) -> Unit = {},
     vm: EncodeViewModel = viewModel()
 ) {
     val clipboard = LocalClipboardManager.current
@@ -76,7 +78,10 @@ fun EncodeScreen(
             trailing = {
                 IconButton(
                     onClick = {
-                        if (vm.morse.isNotEmpty()) clipboard.setText(AnnotatedString(vm.morse))
+                        if (vm.morse.isNotEmpty()) {
+                            clipboard.setText(AnnotatedString(vm.morse))
+                            showMessage("Morse copied to clipboard")
+                        }
                     },
                     enabled = vm.morse.isNotEmpty()
                 ) {
@@ -114,6 +119,24 @@ fun EncodeScreen(
                 value = vm.frequency.toFloat(),
                 onValueChange = { vm.updateFrequency(it.toDouble()) },
                 valueRange = 300f..1200f
+            )
+            Spacer(Modifier.height(16.dp))
+            SwitchRow(
+                label = "Flashlight",
+                supporting = if (vm.torchAvailable) "Blink the torch with each tone"
+                else "No flashlight on this device",
+                checked = vm.torchEnabled,
+                enabled = vm.torchAvailable,
+                onCheckedChange = { vm.toggleTorch() }
+            )
+            Spacer(Modifier.height(8.dp))
+            SwitchRow(
+                label = "Vibration",
+                supporting = if (vm.hapticAvailable) "Buzz the pattern as it plays"
+                else "No vibrator on this device",
+                checked = vm.hapticEnabled,
+                enabled = vm.hapticAvailable,
+                onCheckedChange = { vm.toggleHaptic() }
             )
             Spacer(Modifier.height(20.dp))
             PlayButton(

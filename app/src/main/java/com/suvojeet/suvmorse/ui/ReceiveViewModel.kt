@@ -23,18 +23,11 @@ class ReceiveViewModel : ViewModel() {
         private set
     var sensitivity by mutableStateOf(0.5f)
         private set
-    var frequency by mutableStateOf(MorseDetector.DEFAULT_FREQUENCY_HZ)
-        private set
     var error by mutableStateOf<String?>(null)
         private set
 
     fun updateSensitivity(value: Float) {
         sensitivity = value.coerceIn(0f, 1f)
-        if (isListening) restart()
-    }
-
-    fun updateFrequency(value: Double) {
-        frequency = value.coerceIn(300.0, 1200.0)
         if (isListening) restart()
     }
 
@@ -46,7 +39,6 @@ class ReceiveViewModel : ViewModel() {
             isListening = true
             try {
                 detector.listen(
-                    frequencyHz = frequency,
                     sensitivity = sensitivity,
                     onUpdate = { snapshot -> state = snapshot }
                 )

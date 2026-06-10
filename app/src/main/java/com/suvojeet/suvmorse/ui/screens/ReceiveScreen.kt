@@ -56,10 +56,12 @@ import com.suvojeet.suvmorse.ui.ReceiveViewModel
 import com.suvojeet.suvmorse.ui.components.LabeledSlider
 import com.suvojeet.suvmorse.ui.components.LevelMeter
 import com.suvojeet.suvmorse.ui.components.SectionCard
+import com.suvojeet.suvmorse.ui.components.WaveformView
 
 @Composable
 fun ReceiveScreen(
     modifier: Modifier = Modifier,
+    showMessage: (String) -> Unit = {},
     vm: ReceiveViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -105,6 +107,7 @@ fun ReceiveScreen(
         Text(
             text = when {
                 !hasPermission -> "Tap to grant microphone access and start listening."
+                vm.state.calibrating -> "Calibrating to the room… stay quiet for a moment."
                 vm.isListening -> "Listening… point the mic at a Morse tone."
                 else -> "Tap the mic to start decoding Morse tones."
             },
@@ -123,6 +126,8 @@ fun ReceiveScreen(
         }
 
         SectionCard(title = "Live signal") {
+            WaveformView(levels = vm.state.waveform, active = vm.state.toneOn)
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ToneDot(active = vm.state.toneOn)
                 Spacer(Modifier.width(12.dp))
@@ -130,7 +135,12 @@ fun ReceiveScreen(
                     LevelMeter(level = vm.state.level, active = vm.state.toneOn)
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "Unit ≈ ${vm.state.unitMillis} ms",
+                        text = buildString {
+                            append("Unit ≈ ${vm.state.unitMillis} ms")
+                            if (vm.state.detectedFrequency > 0) {
+                                append("  ·  ${vm.state.detectedFrequency} Hz")
+                            }
+                        },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -157,6 +167,7 @@ fun ReceiveScreen(
                         onClick = {
                             if (vm.state.decoded.isNotBlank()) {
                                 clipboard.setText(AnnotatedString(vm.state.decoded))
+                                showMessage("Decoded text copied")
                             }
                         },
                         enabled = vm.state.decoded.isNotBlank()
@@ -191,17 +202,10 @@ fun ReceiveScreen(
                 onValueChange = vm::updateSensitivity,
                 valueRange = 0f..1f
             )
-            Spacer(Modifier.height(12.dp))
-            LabeledSlider(
-                label = "Tone pitch",
-                valueText = "${vm.frequency.toInt()} Hz",
-                value = vm.frequency.toFloat(),
-                onValueChange = { vm.updateFrequency(it.toDouble()) },
-                valueRange = 300f..1200f
-            )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Match the pitch to the sender (SuvMorse plays at 700 Hz by default).",
+                "Pitch is detected automatically (400–1000 Hz). Raise sensitivity for faint or " +
+                    "distant tones; lower it in a noisy room.",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

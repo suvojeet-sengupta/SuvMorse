@@ -2,6 +2,7 @@ package com.suvojeet.suvmorse.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,13 +18,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -174,5 +178,80 @@ fun LevelMeter(
                 .clip(RoundedCornerShape(6.dp))
                 .background(barColor)
         )
+    }
+}
+
+/** A scrolling bar visualiser of the recent microphone level history. */
+@Composable
+fun WaveformView(
+    levels: FloatArray,
+    active: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val barColor = if (active) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+    val baseline = MaterialTheme.colorScheme.surfaceVariant
+
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(72.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(baseline)
+    ) {
+        Canvas(Modifier.fillMaxWidth().height(72.dp)) {
+            if (levels.isEmpty()) return@Canvas
+            val midY = size.height / 2f
+            val count = levels.size
+            val slot = size.width / count
+            val barW = (slot * 0.6f).coerceAtLeast(1.5f)
+            // Scale faint tone energy up into a readable range.
+            levels.forEachIndexed { i, raw ->
+                val mag = (raw * 5f).coerceIn(0f, 1f)
+                val half = (mag * (size.height / 2f - 4f)).coerceAtLeast(1f)
+                val x = i * slot + slot / 2f
+                drawLine(
+                    color = barColor,
+                    start = Offset(x, midY - half),
+                    end = Offset(x, midY + half),
+                    strokeWidth = barW,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+/** A label with a trailing switch, used for on/off feature toggles. */
+@Composable
+fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    supporting: String? = null
+) {
+    Row(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (supporting != null) {
+                Text(
+                    supporting,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
