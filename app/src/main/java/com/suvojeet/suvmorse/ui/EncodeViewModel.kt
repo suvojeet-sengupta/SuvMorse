@@ -6,7 +6,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.suvojeet.suvmorse.audio.AudioFocusHelper
 import com.suvojeet.suvmorse.audio.FeedbackController
 import com.suvojeet.suvmorse.audio.MorsePlayer
 import com.suvojeet.suvmorse.data.SettingsStore
@@ -18,14 +20,18 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /** Holds the state for the Encode/Play screen. */
-class EncodeViewModel(app: Application) : AndroidViewModel(app) {
+class EncodeViewModel(
+    app: Application,
+    private val savedState: SavedStateHandle
+) : AndroidViewModel(app) {
 
     private val player = MorsePlayer()
     private val feedback = FeedbackController(app)
+    private val focus = AudioFocusHelper(app)
     private val settings = SettingsStore(app)
     private var playJob: Job? = null
 
-    var input by mutableStateOf("")
+    var input by mutableStateOf(savedState.get<String>(KEY_INPUT) ?: "")
         private set
     var wpm by mutableIntStateOf(settings.wpm)
         private set
@@ -61,10 +67,12 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onInputChange(text: String) {
         input = text.take(MorseCode.MAX_INPUT_LENGTH)
+        savedState[KEY_INPUT] = input
     }
 
     fun appendQuick(text: String) {
         input = (input + text).take(MorseCode.MAX_INPUT_LENGTH)
+        savedState[KEY_INPUT] = input
     }
 
     fun updateWpm(value: Int) {
@@ -94,6 +102,7 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
         val unit = MorseTiming.unitMillis(wpm)
         playJob = viewModelScope.launch {
             isPlaying = true
+            focus.request(onLoss = { stop() })
             try {
                 do {
                     if (hapticEnabled) feedback.vibratePattern(signals, unit)
@@ -112,6 +121,7 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
                 isPlaying = false
                 currentSymbol = -1
                 feedback.stop()
+                focus.abandon()
             }
         }
     }
@@ -125,6 +135,7 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
     fun clear() {
         stop()
         input = ""
+        savedState[KEY_INPUT] = ""
     }
 
     override fun onCleared() {
@@ -133,5 +144,6 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val SILENT_FREQUENCY_HZ = 16_000.0
+        private const val KEY_INPUT = "encode_input"
     }
 }

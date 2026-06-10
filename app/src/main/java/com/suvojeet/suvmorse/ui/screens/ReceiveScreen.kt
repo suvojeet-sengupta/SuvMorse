@@ -1,7 +1,10 @@
 package com.suvojeet.suvmorse.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
@@ -34,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +56,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.suvojeet.suvmorse.ui.ReceiveViewModel
 import com.suvojeet.suvmorse.ui.components.LabeledSlider
@@ -74,16 +82,27 @@ fun ReceiveScreen(
                 PackageManager.PERMISSION_GRANTED
         )
     }
+    var permissionDenied by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
+        permissionDenied = !granted
         if (granted) vm.start()
     }
 
-    // Stop the mic whenever this screen leaves the composition (e.g. switching tabs).
-    DisposableEffect(Unit) {
-        onDispose { vm.stop() }
+    // Stop the mic when this screen leaves the composition (tab switch) AND when the app is
+    // backgrounded — background capture yields silence on Android 9+ and wastes battery.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) vm.stop()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            vm.stop()
+        }
     }
 
     Column(
@@ -116,6 +135,18 @@ fun ReceiveScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+
+        if (permissionDenied && !hasPermission) {
+            TextButton(onClick = {
+                val intent = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", context.packageName, null)
+                )
+                runCatching { context.startActivity(intent) }
+            }) {
+                Text("Open settings to allow microphone")
+            }
+        }
 
         vm.error?.let { msg ->
             Text(
@@ -249,7 +280,11 @@ private fun ListenButton(isListening: Boolean, onClick: () -> Unit) {
             Modifier
                 .size(108.dp)
                 .background(container, CircleShape)
-                .clickable(onClick = onClick),
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = if (isListening) "Stop listening" else "Start listening",
+                    onClick = onClick
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(

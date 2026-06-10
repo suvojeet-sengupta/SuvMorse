@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import com.suvojeet.suvmorse.morse.MorseCode
+import com.suvojeet.suvmorse.morse.MorseDecodeEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -13,7 +13,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sqrt
 
-/** Snapshot of the detector emitted to the UI on every analysis block. */
+/** Snapshot of the detector emitted to the UI. */
 data class DetectorState(
     val level: Float = 0f,            // normalised tone energy, 0..1
     val toneOn: Boolean = false,      // is a tone currently keyed down?
@@ -24,7 +24,7 @@ data class DetectorState(
     val calibrating: Boolean = false, // measuring the ambient noise floor
     val waveform: FloatArray = FloatArray(0) // recent level history for the visualiser
 ) {
-    // Identity-based equals/hashCode are fine: a fresh snapshot is emitted every block.
+    // Identity-based equals/hashCode are fine: a fresh snapshot is emitted on each update.
     override fun equals(other: Any?): Boolean = this === other
     override fun hashCode(): Int = System.identityHashCode(this)
 }
@@ -33,13 +33,14 @@ data class DetectorState(
  * Listens to the microphone and decodes Morse code tones in real time.
  *
  * Pipeline per ~12 ms block:
- *  1. A Goertzel **filterbank** spanning 400–1000 Hz finds the dominant tone and its energy,
- *     so the user doesn't have to dial in the exact pitch.
- *  2. The first ~0.7 s **calibrates** the ambient noise floor.
- *  3. An adaptive threshold with hysteresis plus a 3-block **median debounce** decides tone
- *     on/off, rejecting jitter.
- *  4. On/off run lengths are classified into dot/dash and intra/letter/word gaps against an
- *     adaptively-estimated unit length, then decoded incrementally to text.
+ *  1. A Goertzel filterbank (audible 400–1000 Hz plus ~16 kHz "silent mode" bins) finds the
+ *     dominant tone and its energy.
+ *  2. The first ~0.7 s calibrates the ambient noise floor.
+ *  3. An adaptive threshold with hysteresis plus a 3-block median debounce decides tone on/off.
+ *  4. [MorseDecodeEngine] turns the on/off stream into text.
+ *
+ * UI snapshots are throttled to ~25/s (plus an immediate emit whenever the decode state changes)
+ * to avoid recomposing the screen on every audio block.
  */
 class MorseDetector(
     private val sampleRate: Int = 44_100,
@@ -49,11 +50,9 @@ class MorseDetector(
         private const val BAND_MIN_HZ = 400
         private const val BAND_MAX_HZ = 1000
         private const val BAND_STEP_HZ = 50
-        private const val INITIAL_UNIT_MS = 120.0
-        private const val MIN_UNIT_MS = 40.0
-        private const val MAX_UNIT_MS = 500.0
         private const val WAVEFORM_POINTS = 96
         private const val CALIBRATION_MS = 700.0
+        private const val EMIT_INTERVAL_MS = 40.0 // ~25 UI updates per second
     }
 
     @SuppressLint("MissingPermission") // caller is responsible for the RECORD_AUDIO grant
@@ -67,21 +66,12 @@ class MorseDetector(
             AudioFormat.ENCODING_PCM_16BIT
         ).coerceAtLeast(blockSize * 4)
 
-        // MIC (rather than VOICE_RECOGNITION) avoids the voice-band filtering that would
-        // otherwise attenuate the 16 kHz silent-mode tone.
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
-            sampleRate,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            minBuf
-        )
+        val record = openRecord(minBuf)
         check(record.state == AudioRecord.STATE_INITIALIZED) {
             "Could not initialise the microphone."
         }
 
-        // Pre-computed Goertzel coefficients for each frequency bin. The audible band covers
-        // normal Morse tones; the high bins pick up the ~16 kHz near-inaudible "silent mode".
+        // Goertzel coefficients: audible band + high bins for the 16 kHz silent mode.
         val freqs = (BAND_MIN_HZ..BAND_MAX_HZ step BAND_STEP_HZ).toList() +
             listOf(15_500, 16_000, 16_500)
         val coeffs = DoubleArray(freqs.size) { 2.0 * cos(2.0 * PI * freqs[it] / sampleRate) }
@@ -91,36 +81,42 @@ class MorseDetector(
         val buffer = ShortArray(blockSize)
         val wave = ArrayDeque<Float>()
 
-        // Calibration state.
         val calibrationBlocks = (CALIBRATION_MS / blockMs).toInt().coerceAtLeast(10)
         var blockCount = 0
         var calibrating = true
         var noiseAccum = 0.0
         var calibSamples = 0
 
-        // Adaptive detection state.
         var noiseFloor = 0.01
         var peak = 0.02
-        var toneOn = false
-        var d0 = false; var d1 = false; var d2 = false // 3-block debounce window
+        var d0 = false; var d1 = false; var d2 = false
         var detectedFreq = 0
 
-        // Timing / decode state.
-        var unitMs = INITIAL_UNIT_MS
-        var runMs = 0.0
-        val pending = StringBuilder()
-        val decoded = StringBuilder()
-        var letterFlushed = false
-        var wordFlushed = false
+        val engine = MorseDecodeEngine()
+        var msSinceEmit = 0.0
+        var lastPendingLen = 0
+        var lastDecodedLen = 0
+        var lastToneOn = false
 
         fun pushWave(v: Float) {
             wave.addLast(v)
             while (wave.size > WAVEFORM_POINTS) wave.removeFirst()
         }
 
+        fun snapshot(level: Double, calibratingNow: Boolean) = DetectorState(
+            level = level.toFloat(),
+            toneOn = engine.toneOn,
+            pending = engine.pendingText,
+            decoded = engine.decodedText,
+            unitMillis = engine.unitMs.toInt(),
+            detectedFrequency = if (engine.toneOn) detectedFreq else 0,
+            calibrating = calibratingNow,
+            waveform = wave.toFloatArray()
+        )
+
         try {
             record.startRecording()
-            onUpdate(DetectorState(calibrating = true, unitMillis = unitMs.toInt()))
+            onUpdate(DetectorState(calibrating = true, unitMillis = engine.unitMs.toInt()))
 
             while (true) {
                 coroutineContext.ensureActive()
@@ -128,7 +124,7 @@ class MorseDetector(
                 if (n <= 0) continue
                 val dt = n * 1000.0 / sampleRate
 
-                // ── Goertzel filterbank: dominant tone + its energy ──
+                // Goertzel filterbank: dominant tone + its energy.
                 var bestLevel = 0.0
                 var bestFreq = 0
                 for (b in coeffs.indices) {
@@ -150,7 +146,6 @@ class MorseDetector(
                 val level = bestLevel.coerceIn(0.0, 1.0)
                 pushWave(level.toFloat())
 
-                // ── Calibration: just learn the noise floor, don't decode yet ──
                 if (calibrating) {
                     noiseAccum += level
                     calibSamples++
@@ -159,91 +154,65 @@ class MorseDetector(
                         peak = noiseFloor * 3
                         calibrating = false
                     }
-                    onUpdate(
-                        DetectorState(
-                            level = level.toFloat(),
-                            calibrating = true,
-                            unitMillis = unitMs.toInt(),
-                            waveform = wave.toFloatArray()
-                        )
-                    )
+                    msSinceEmit += dt
+                    if (msSinceEmit >= EMIT_INTERVAL_MS) {
+                        onUpdate(snapshot(level, calibratingNow = true))
+                        msSinceEmit = 0.0
+                    }
                     continue
                 }
 
-                // ── Adaptive envelope + hysteresis ──
+                // Adaptive envelope + hysteresis.
                 peak = maxOf(peak * 0.997, level)
-                if (!toneOn) noiseFloor = noiseFloor * 0.995 + level * 0.005
+                if (!engine.toneOn) noiseFloor = noiseFloor * 0.995 + level * 0.005
                 val span = (peak - noiseFloor).coerceAtLeast(0.0)
                 val gated = peak > noiseFloor * 2.2 + 0.004
                 val onThresh = noiseFloor + span * frac
                 val offThresh = noiseFloor + span * frac * 0.55
-                val raw = gated && if (toneOn) level > offThresh else level > onThresh
+                val raw = gated && if (engine.toneOn) level > offThresh else level > onThresh
 
                 // 3-block median debounce.
                 d0 = d1; d1 = d2; d2 = raw
                 val present = (if (d0) 1 else 0) + (if (d1) 1 else 0) + (if (d2) 1 else 0) >= 2
                 if (present) detectedFreq = bestFreq
 
-                if (present == toneOn) {
-                    runMs += dt
-                    if (!toneOn) {
-                        if (!letterFlushed && pending.isNotEmpty() && runMs >= unitMs * 2.0) {
-                            decoded.append(MorseCode.decodeToken(pending.toString()) ?: '¿')
-                            pending.setLength(0)
-                            letterFlushed = true
-                        }
-                        if (!wordFlushed && decoded.isNotEmpty() &&
-                            !decoded.endsWith(" ") && runMs >= unitMs * 5.0
-                        ) {
-                            decoded.append(' ')
-                            wordFlushed = true
-                        }
-                    }
-                } else {
-                    if (toneOn) {
-                        // Tone ended -> classify dot/dash, adapt the unit estimate.
-                        val isDot = runMs < unitMs * 2.0
-                        pending.append(if (isDot) MorseCode.DOT else MorseCode.DASH)
-                        val observedUnit = if (isDot) runMs else runMs / 3.0
-                        unitMs = (unitMs * 0.7 + observedUnit * 0.3)
-                            .coerceIn(MIN_UNIT_MS, MAX_UNIT_MS)
-                        toneOn = false
-                        letterFlushed = false
-                        wordFlushed = false
-                    } else {
-                        toneOn = true
-                    }
-                    runMs = dt
-                }
+                engine.process(present, dt)
 
-                onUpdate(
-                    DetectorState(
-                        level = level.toFloat(),
-                        toneOn = toneOn,
-                        pending = pending.toString(),
-                        decoded = decoded.toString(),
-                        unitMillis = unitMs.toInt(),
-                        detectedFrequency = if (toneOn) detectedFreq else 0,
-                        calibrating = false,
-                        waveform = wave.toFloatArray()
-                    )
-                )
+                // Emit on any decode-relevant change, otherwise at the throttled interval.
+                msSinceEmit += dt
+                val changed = engine.toneOn != lastToneOn ||
+                    engine.pendingText.length != lastPendingLen ||
+                    engine.decodedText.length != lastDecodedLen
+                if (changed || msSinceEmit >= EMIT_INTERVAL_MS) {
+                    onUpdate(snapshot(level, calibratingNow = false))
+                    msSinceEmit = 0.0
+                    lastToneOn = engine.toneOn
+                    lastPendingLen = engine.pendingText.length
+                    lastDecodedLen = engine.decodedText.length
+                }
             }
         } finally {
-            if (pending.isNotEmpty()) {
-                decoded.append(MorseCode.decodeToken(pending.toString()) ?: '¿')
-                pending.setLength(0)
-            }
-            onUpdate(
-                DetectorState(
-                    pending = "",
-                    decoded = decoded.toString(),
-                    unitMillis = unitMs.toInt(),
-                    waveform = wave.toFloatArray()
-                )
-            )
+            engine.finish()
+            onUpdate(snapshot(level = 0.0, calibratingNow = false))
             runCatching { record.stop() }
             runCatching { record.release() }
         }
+    }
+
+    /**
+     * Prefer the UNPROCESSED source (no AGC/noise-suppression, best for the 16 kHz tone); fall
+     * back to MIC if the device doesn't support it.
+     */
+    @SuppressLint("MissingPermission")
+    private fun openRecord(minBuf: Int): AudioRecord {
+        fun build(source: Int) = AudioRecord(
+            source, sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBuf
+        )
+        val unprocessed = runCatching { build(MediaRecorder.AudioSource.UNPROCESSED) }.getOrNull()
+        if (unprocessed != null && unprocessed.state == AudioRecord.STATE_INITIALIZED) {
+            return unprocessed
+        }
+        runCatching { unprocessed?.release() }
+        return build(MediaRecorder.AudioSource.MIC)
     }
 }

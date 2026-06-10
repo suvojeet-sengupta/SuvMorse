@@ -31,6 +31,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,22 +133,25 @@ fun MorseGlyphs(
     val highlight = MaterialTheme.colorScheme.primary
     val dim = MaterialTheme.colorScheme.onSurfaceVariant
 
-    val text: AnnotatedString = buildAnnotatedString {
-        var ordinal = 0
-        for (c in morse) {
-            when (c) {
-                MorseCode.DOT, MorseCode.DASH -> {
-                    val isActive = ordinal == activeSymbol
-                    withStyle(
-                        SpanStyle(
-                            color = if (isActive) highlight else base,
-                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                            background = if (isActive) highlight.copy(alpha = 0.18f) else Color.Transparent
-                        )
-                    ) { append(c) }
-                    ordinal++
+    val text: AnnotatedString = remember(morse, activeSymbol, base, highlight, dim) {
+        buildAnnotatedString {
+            var ordinal = 0
+            for (c in morse) {
+                when (c) {
+                    MorseCode.DOT, MorseCode.DASH -> {
+                        val isActive = ordinal == activeSymbol
+                        withStyle(
+                            SpanStyle(
+                                color = if (isActive) highlight else base,
+                                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                background = if (isActive) highlight.copy(alpha = 0.18f)
+                                else Color.Transparent
+                            )
+                        ) { append(c) }
+                        ordinal++
+                    }
+                    else -> withStyle(SpanStyle(color = dim)) { append(c) }
                 }
-                else -> withStyle(SpanStyle(color = dim)) { append(c) }
             }
         }
     }
