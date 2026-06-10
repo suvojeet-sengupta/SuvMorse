@@ -29,6 +29,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.suvojeet.suvmorse.morse.MorseCode
 import com.suvojeet.suvmorse.ui.components.SectionCard
+import com.suvojeet.suvmorse.ui.components.ShareButtons
 
 /** Manual Morse → text decoder. Type or paste dots/dashes; spaces split letters, "/" splits words. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -100,6 +101,14 @@ fun DecodeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
+            )
+        }
+
+        SectionCard(title = "Share") {
+            ShareButtons(
+                text = decoded,
+                enabled = decoded.isNotBlank(),
+                showMessage = showMessage
             )
         }
     }

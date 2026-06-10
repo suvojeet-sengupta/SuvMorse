@@ -1,33 +1,37 @@
 package com.suvojeet.suvmorse.ui
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.suvojeet.suvmorse.audio.DetectorState
 import com.suvojeet.suvmorse.audio.MorseDetector
+import com.suvojeet.suvmorse.data.SettingsStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /** Holds the state for the Receive/Decode screen. */
-class ReceiveViewModel : ViewModel() {
+class ReceiveViewModel(app: Application) : AndroidViewModel(app) {
 
     private val detector = MorseDetector()
+    private val settings = SettingsStore(app)
     private var listenJob: Job? = null
 
     var isListening by mutableStateOf(false)
         private set
     var state by mutableStateOf(DetectorState())
         private set
-    var sensitivity by mutableStateOf(0.5f)
+    var sensitivity by mutableStateOf(settings.sensitivity)
         private set
     var error by mutableStateOf<String?>(null)
         private set
 
     fun updateSensitivity(value: Float) {
         sensitivity = value.coerceIn(0f, 1f)
+        settings.sensitivity = sensitivity
         if (isListening) restart()
     }
 

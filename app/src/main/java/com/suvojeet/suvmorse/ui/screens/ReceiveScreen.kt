@@ -56,6 +56,7 @@ import com.suvojeet.suvmorse.ui.ReceiveViewModel
 import com.suvojeet.suvmorse.ui.components.LabeledSlider
 import com.suvojeet.suvmorse.ui.components.LevelMeter
 import com.suvojeet.suvmorse.ui.components.SectionCard
+import com.suvojeet.suvmorse.ui.components.ShareButtons
 import com.suvojeet.suvmorse.ui.components.WaveformView
 
 @Composable
@@ -208,6 +209,14 @@ fun ReceiveScreen(
                     "distant tones; lower it in a noisy room.",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        SectionCard(title = "Share") {
+            ShareButtons(
+                text = vm.state.decoded,
+                enabled = vm.state.decoded.isNotBlank(),
+                showMessage = showMessage
             )
         }
     }

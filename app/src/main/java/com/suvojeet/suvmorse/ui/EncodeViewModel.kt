@@ -9,9 +9,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.suvojeet.suvmorse.audio.FeedbackController
 import com.suvojeet.suvmorse.audio.MorsePlayer
+import com.suvojeet.suvmorse.data.SettingsStore
 import com.suvojeet.suvmorse.morse.MorseCode
 import com.suvojeet.suvmorse.morse.MorseTiming
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /** Holds the state for the Encode/Play screen. */
@@ -19,19 +22,22 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
 
     private val player = MorsePlayer()
     private val feedback = FeedbackController(app)
+    private val settings = SettingsStore(app)
     private var playJob: Job? = null
 
     var input by mutableStateOf("")
         private set
-    var wpm by mutableIntStateOf(15)
+    var wpm by mutableIntStateOf(settings.wpm)
         private set
-    var frequency by mutableStateOf(700.0)
+    var frequency by mutableStateOf(settings.frequency.toDouble())
         private set
     var isPlaying by mutableStateOf(false)
         private set
-    var torchEnabled by mutableStateOf(false)
+    var torchEnabled by mutableStateOf(settings.torch)
         private set
-    var hapticEnabled by mutableStateOf(false)
+    var hapticEnabled by mutableStateOf(settings.haptic)
+        private set
+    var loopEnabled by mutableStateOf(settings.loop)
         private set
 
     /** Ordinal of the dot/dash currently sounding, or -1 when idle. Drives UI highlighting. */
@@ -41,6 +47,8 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
     val morse: String get() = MorseCode.encode(input)
     val charCount: Int get() = input.length
     val maxChars: Int get() = MorseCode.MAX_INPUT_LENGTH
+    val wordCount: Int
+        get() = input.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
     val torchAvailable: Boolean get() = feedback.hasTorch()
     val hapticAvailable: Boolean get() = feedback.hasVibrator()
 
@@ -48,13 +56,25 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
         input = text.take(MorseCode.MAX_INPUT_LENGTH)
     }
 
-    fun updateWpm(value: Int) { wpm = value.coerceIn(5, 40) }
+    fun appendQuick(text: String) {
+        input = (input + text).take(MorseCode.MAX_INPUT_LENGTH)
+    }
 
-    fun updateFrequency(value: Double) { frequency = value.coerceIn(300.0, 1200.0) }
+    fun updateWpm(value: Int) {
+        wpm = value.coerceIn(5, 40)
+        settings.wpm = wpm
+    }
 
-    fun toggleTorch() { torchEnabled = !torchEnabled }
+    fun updateFrequency(value: Double) {
+        frequency = value.coerceIn(300.0, 1200.0)
+        settings.frequency = frequency.toFloat()
+    }
 
-    fun toggleHaptic() { hapticEnabled = !hapticEnabled }
+    fun toggleTorch() { torchEnabled = !torchEnabled; settings.torch = torchEnabled }
+
+    fun toggleHaptic() { hapticEnabled = !hapticEnabled; settings.haptic = hapticEnabled }
+
+    fun toggleLoop() { loopEnabled = !loopEnabled; settings.loop = loopEnabled }
 
     fun togglePlay() = if (isPlaying) stop() else play()
 
@@ -65,17 +85,20 @@ class EncodeViewModel(app: Application) : AndroidViewModel(app) {
         val unit = MorseTiming.unitMillis(wpm)
         playJob = viewModelScope.launch {
             isPlaying = true
-            if (hapticEnabled) feedback.vibratePattern(signals, unit)
             try {
-                player.play(
-                    signals = signals,
-                    unitMillis = unit,
-                    frequencyHz = frequency,
-                    onSymbol = { idx ->
-                        currentSymbol = idx
-                        if (torchEnabled) feedback.setTorch(idx >= 0)
-                    }
-                )
+                do {
+                    if (hapticEnabled) feedback.vibratePattern(signals, unit)
+                    player.play(
+                        signals = signals,
+                        unitMillis = unit,
+                        frequencyHz = frequency,
+                        onSymbol = { idx ->
+                            currentSymbol = idx
+                            if (torchEnabled) feedback.setTorch(idx >= 0)
+                        }
+                    )
+                    if (loopEnabled && isActive) delay((unit * MorseTiming.WORD_GAP).toLong())
+                } while (loopEnabled && isActive)
             } finally {
                 isPlaying = false
                 currentSymbol = -1

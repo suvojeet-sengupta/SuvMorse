@@ -3,10 +3,15 @@ package com.suvojeet.suvmorse.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.GridView
@@ -27,9 +32,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,24 +101,44 @@ private fun BrandHeader() {
     val gradient = Brush.horizontalGradient(
         listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)
     )
-    Column(
+    val onGradient = MaterialTheme.colorScheme.onPrimary
+    Row(
         Modifier
             .fillMaxWidth()
             .background(gradient)
             .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 18.dp)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "SuvMorse",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimary
-        )
-        Text(
-            text = "− −·· · ·   encode · play · decode",
-            fontSize = 13.sp,
-            letterSpacing = 1.sp,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
-        )
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(onGradient.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "·−",
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = onGradient
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column {
+            Text(
+                text = "SuvMorse",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = onGradient
+            )
+            Text(
+                text = "encode · play · decode",
+                fontSize = 13.sp,
+                letterSpacing = 1.sp,
+                color = onGradient.copy(alpha = 0.85f)
+            )
+        }
     }
 }

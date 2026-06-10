@@ -2,6 +2,7 @@ package com.suvojeet.suvmorse.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -12,11 +13,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -28,6 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -37,6 +48,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.suvojeet.suvmorse.morse.MorseCode
+import com.suvojeet.suvmorse.util.ShareUtils
 
 /** A titled surface card used to group related controls. */
 @Composable
@@ -253,5 +265,72 @@ fun SwitchRow(
             }
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
+/** A small "key down" beacon that glows while a tone is sounding. */
+@Composable
+fun TransmitBeacon(active: Boolean, modifier: Modifier = Modifier) {
+    val glow by animateFloatAsState(
+        targetValue = if (active) 1f else 0f,
+        animationSpec = tween(120),
+        label = "beacon"
+    )
+    val core = MaterialTheme.colorScheme.primary
+    val idle = MaterialTheme.colorScheme.surfaceVariant
+    Box(modifier.size(28.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(core.copy(alpha = 0.28f * glow))
+        )
+        Box(
+            Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .background(lerp(idle, core, glow))
+        )
+    }
+}
+
+/** A WhatsApp fast-share button plus a generic system-share button. */
+@Composable
+fun ShareButtons(
+    text: String,
+    enabled: Boolean,
+    showMessage: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val whatsappGreen = Color(0xFF25D366)
+    Row(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Button(
+            onClick = {
+                if (!ShareUtils.shareToWhatsApp(context, text)) {
+                    showMessage("WhatsApp isn't installed")
+                }
+            },
+            enabled = enabled,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = whatsappGreen,
+                contentColor = Color.White
+            )
+        ) {
+            Text("WhatsApp", fontWeight = FontWeight.SemiBold)
+        }
+        OutlinedButton(
+            onClick = { ShareUtils.share(context, text) },
+            enabled = enabled,
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(Icons.Filled.Share, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text("Share")
+        }
     }
 }

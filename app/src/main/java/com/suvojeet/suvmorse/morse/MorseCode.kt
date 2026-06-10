@@ -16,8 +16,8 @@ object MorseCode {
     const val LETTER_SEPARATOR = " "
     const val WORD_SEPARATOR = " / "
 
-    /** Maximum input length we accept, kept small "for the safe side". */
-    const val MAX_INPUT_LENGTH = 300
+    /** Maximum input length we accept. Generous, but bounded for performance/safety. */
+    const val MAX_INPUT_LENGTH = 2000
 
     val charToMorse: Map<Char, String> = linkedMapOf(
         'A' to ".-", 'B' to "-...", 'C' to "-.-.", 'D' to "-..", 'E' to ".",

@@ -20,9 +20,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -34,7 +36,9 @@ import com.suvojeet.suvmorse.ui.EncodeViewModel
 import com.suvojeet.suvmorse.ui.components.LabeledSlider
 import com.suvojeet.suvmorse.ui.components.MorseGlyphs
 import com.suvojeet.suvmorse.ui.components.SectionCard
+import com.suvojeet.suvmorse.ui.components.ShareButtons
 import com.suvojeet.suvmorse.ui.components.SwitchRow
+import com.suvojeet.suvmorse.ui.components.TransmitBeacon
 
 @Composable
 fun EncodeScreen(
@@ -43,7 +47,10 @@ fun EncodeScreen(
     vm: EncodeViewModel = viewModel()
 ) {
     val clipboard = LocalClipboardManager.current
+    val morse = vm.morse
+    val hasMorse = morse.isNotEmpty()
     val nearLimit = vm.charCount >= vm.maxChars * 0.9
+    val shareText = if (vm.input.isBlank()) "" else "${vm.input}\n\n$morse"
 
     Column(
         modifier
@@ -61,7 +68,11 @@ fun EncodeScreen(
                     .heightIn(min = 120.dp),
                 placeholder = { Text("Type something to convert to Morse…") },
                 supportingText = {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("${vm.wordCount} words")
                         Text(
                             "${vm.charCount} / ${vm.maxChars}",
                             color = if (nearLimit) MaterialTheme.colorScheme.error
@@ -71,32 +82,43 @@ fun EncodeScreen(
                     }
                 }
             )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.appendQuick("SOS ") }) { Text("SOS") }
+                OutlinedButton(
+                    onClick = { vm.clear() },
+                    enabled = vm.input.isNotEmpty()
+                ) { Text("Clear") }
+            }
         }
 
         SectionCard(
             title = "Morse",
             trailing = {
-                IconButton(
-                    onClick = {
-                        if (vm.morse.isNotEmpty()) {
-                            clipboard.setText(AnnotatedString(vm.morse))
-                            showMessage("Morse copied to clipboard")
-                        }
-                    },
-                    enabled = vm.morse.isNotEmpty()
-                ) {
-                    Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy Morse")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TransmitBeacon(active = vm.currentSymbol >= 0)
+                    IconButton(
+                        onClick = {
+                            if (hasMorse) {
+                                clipboard.setText(AnnotatedString(morse))
+                                showMessage("Morse copied to clipboard")
+                            }
+                        },
+                        enabled = hasMorse
+                    ) {
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy Morse")
+                    }
                 }
             }
         ) {
-            if (vm.morse.isEmpty()) {
+            if (!hasMorse) {
                 Text(
                     "· — · ·   will appear here",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
                 MorseGlyphs(
-                    morse = vm.morse,
+                    morse = morse,
                     activeSymbol = vm.currentSymbol,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -122,6 +144,13 @@ fun EncodeScreen(
             )
             Spacer(Modifier.height(16.dp))
             SwitchRow(
+                label = "Loop",
+                supporting = "Repeat the message until stopped",
+                checked = vm.loopEnabled,
+                onCheckedChange = { vm.toggleLoop() }
+            )
+            Spacer(Modifier.height(8.dp))
+            SwitchRow(
                 label = "Flashlight",
                 supporting = if (vm.torchAvailable) "Blink the torch with each tone"
                 else "No flashlight on this device",
@@ -141,8 +170,16 @@ fun EncodeScreen(
             Spacer(Modifier.height(20.dp))
             PlayButton(
                 isPlaying = vm.isPlaying,
-                enabled = vm.morse.isNotEmpty(),
+                enabled = hasMorse,
                 onClick = vm::togglePlay
+            )
+        }
+
+        SectionCard(title = "Share") {
+            ShareButtons(
+                text = shareText,
+                enabled = hasMorse,
+                showMessage = showMessage
             )
         }
     }
