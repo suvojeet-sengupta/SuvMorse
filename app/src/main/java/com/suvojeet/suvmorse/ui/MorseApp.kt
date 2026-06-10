@@ -17,7 +17,9 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -28,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -52,6 +55,7 @@ private data class Destination(val title: String, val icon: ImageVector)
 @Composable
 fun MorseApp() {
     var selected by rememberSaveable { mutableIntStateOf(0) }
+    var showAbout by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val showMessage: (String) -> Unit = { msg ->
@@ -68,8 +72,12 @@ fun MorseApp() {
         Destination("Chart", Icons.Filled.GridView)
     )
 
+    if (showAbout) {
+        AboutDialog(onDismiss = { showAbout = false })
+    }
+
     Scaffold(
-        topBar = { BrandHeader() },
+        topBar = { BrandHeader(onAbout = { showAbout = true }) },
         bottomBar = {
             NavigationBar {
                 destinations.forEachIndexed { index, dest ->
@@ -97,7 +105,7 @@ fun MorseApp() {
 }
 
 @Composable
-private fun BrandHeader() {
+private fun BrandHeader(onAbout: () -> Unit) {
     val gradient = Brush.horizontalGradient(
         listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)
     )
@@ -107,7 +115,7 @@ private fun BrandHeader() {
             .fillMaxWidth()
             .background(gradient)
             .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(start = 20.dp, top = 14.dp, end = 8.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -126,7 +134,7 @@ private fun BrandHeader() {
             )
         }
         Spacer(Modifier.width(14.dp))
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(
                 text = "SuvMorse",
                 style = MaterialTheme.typography.headlineSmall,
@@ -139,6 +147,9 @@ private fun BrandHeader() {
                 letterSpacing = 1.sp,
                 color = onGradient.copy(alpha = 0.85f)
             )
+        }
+        IconButton(onClick = onAbout) {
+            Icon(Icons.Outlined.Info, contentDescription = "About", tint = onGradient)
         }
     }
 }
