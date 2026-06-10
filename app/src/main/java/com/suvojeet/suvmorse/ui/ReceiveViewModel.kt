@@ -28,12 +28,12 @@ class ReceiveViewModel : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
 
-    fun setSensitivity(value: Float) {
+    fun updateSensitivity(value: Float) {
         sensitivity = value.coerceIn(0f, 1f)
         if (isListening) restart()
     }
 
-    fun setFrequency(value: Double) {
+    fun updateFrequency(value: Double) {
         frequency = value.coerceIn(300.0, 1200.0)
         if (isListening) restart()
     }

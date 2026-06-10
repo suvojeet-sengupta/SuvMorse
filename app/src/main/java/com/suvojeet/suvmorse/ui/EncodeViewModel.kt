@@ -39,9 +39,9 @@ class EncodeViewModel : ViewModel() {
         input = text.take(MorseCode.MAX_INPUT_LENGTH)
     }
 
-    fun setWpm(value: Int) { wpm = value.coerceIn(5, 40) }
+    fun updateWpm(value: Int) { wpm = value.coerceIn(5, 40) }
 
-    fun setFrequency(value: Double) { frequency = value.coerceIn(300.0, 1200.0) }
+    fun updateFrequency(value: Double) { frequency = value.coerceIn(300.0, 1200.0) }
 
     fun togglePlay() = if (isPlaying) stop() else play()
 

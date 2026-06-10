@@ -103,7 +103,7 @@ fun EncodeScreen(
                 label = "Speed",
                 valueText = "${vm.wpm} WPM",
                 value = vm.wpm.toFloat(),
-                onValueChange = { vm.setWpm(it.toInt()) },
+                onValueChange = { vm.updateWpm(it.toInt()) },
                 valueRange = 5f..40f,
                 steps = 34
             )
@@ -112,7 +112,7 @@ fun EncodeScreen(
                 label = "Pitch",
                 valueText = "${vm.frequency.toInt()} Hz",
                 value = vm.frequency.toFloat(),
-                onValueChange = { vm.setFrequency(it.toDouble()) },
+                onValueChange = { vm.updateFrequency(it.toDouble()) },
                 valueRange = 300f..1200f
             )
             Spacer(Modifier.height(20.dp))

@@ -188,7 +188,7 @@ fun ReceiveScreen(
                 label = "Sensitivity",
                 valueText = "${(vm.sensitivity * 100).toInt()}%",
                 value = vm.sensitivity,
-                onValueChange = vm::setSensitivity,
+                onValueChange = vm::updateSensitivity,
                 valueRange = 0f..1f
             )
             Spacer(Modifier.height(12.dp))
@@ -196,7 +196,7 @@ fun ReceiveScreen(
                 label = "Tone pitch",
                 valueText = "${vm.frequency.toInt()} Hz",
                 value = vm.frequency.toFloat(),
-                onValueChange = { vm.setFrequency(it.toDouble()) },
+                onValueChange = { vm.updateFrequency(it.toDouble()) },
                 valueRange = 300f..1200f
             )
             Spacer(Modifier.height(4.dp))
